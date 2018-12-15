@@ -189,7 +189,7 @@ if [[ -s $TEMP ]]; then
 else
 	echo Invalid URL: $1
 	echo Skipping blacklist
-	printf "Invalid URL: %s\n" "$1" >> /var/log/blister.log
+	printf "%s Invalid URL: %s\n" "$(date)" "$1" >> /var/log/blister.log
 fi
 }
 
