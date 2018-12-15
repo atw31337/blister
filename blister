@@ -262,7 +262,7 @@ OBJECTGROUP="SSLAbuseList"
 Parse $URL $OBJECTGROUP
 
 #Feodo Tracker CnC Servers
-URL="https://feodotracker.abuse.ch/blocklist/?download=ipblocklist"
+URL="https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
 OBJECTGROUP="FeodoTracker"
 
 Parse $URL $OBJECTGROUP
