@@ -100,7 +100,7 @@ esac
 
 Parse () {
 
-wget $1 -O $TEMP
+wget $1 -o /var/log/blister.log -q -O $TEMP
 
 if [[ -s $TEMP ]]; then
 	#Remove previous version of blacklist object-group and create a new one. 
@@ -192,6 +192,12 @@ else
 	printf "%s Invalid URL: %s\n" "$(date)" "$1" >> /var/log/blister.log
 fi
 }
+
+# Remove previous log file
+if [[ -e /var/log/blister.log ]]; then
+	rm /var/log/blister.log
+fi
+
 
 ###################################### Set File Locations and Enter Config Mode ##########################################
 
