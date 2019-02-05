@@ -278,7 +278,7 @@ Parse $URL $OBJECTGROUP
 #DShield Block List
 DSHIELD=$FILEDIR"dshield"
 
-wget https://www.dshield.org/block.txt -O $TEMP
+wget https://www.dshield.org/block.txt -q -O $TEMP
 if [[ -s $TEMP ]]; then
 	tail -n +30 $TEMP > $DSHIELD
 	cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
