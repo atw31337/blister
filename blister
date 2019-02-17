@@ -101,7 +101,7 @@ esac
 Parse () {
 
 if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
-	#Remove previous version of blacklist object-group and create a new one. 
+	#Remove previous version of blacklist object-group and create a new one.
 	printf "no object-group network %s\n" "$2" >> $FQFP
 	printf "object-group network %s\n" "$2" >> $FQFP
 	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
@@ -234,7 +234,7 @@ OBJECTGROUP="ETKnownCompromised"
 Parse $URL $OBJECTGROUP
 
 #Ransomeware Tracker CnC Servers
-URL="http://ransomwaretracker.abuse.ch/downloads/RW_IPBL.txt"
+URL="https://ransomwaretracker.abuse.ch/downloads/RW_IPBL.txt"
 OBJECTGROUP="RansomwareCnC"
 
 Parse $URL $OBJECTGROUP
