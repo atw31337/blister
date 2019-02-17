@@ -100,9 +100,7 @@ esac
 
 Parse () {
 
-wget $1 -o /var/log/blister.log -q -O $TEMP
-
-if [[ -s $TEMP ]]; then
+if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 	#Remove previous version of blacklist object-group and create a new one. 
 	printf "no object-group network %s\n" "$2" >> $FQFP
 	printf "object-group network %s\n" "$2" >> $FQFP
@@ -156,10 +154,8 @@ if [[ -s $TEMP ]]; then
 					done
 
 				elif [ $RANGEMETHOD -eq 2 ]; then	##Method 2: Create IP range objects
-
 					((OCT4+=1))
 					IP="$OCT1.$OCT2.$OCT3.$OCT4"
-
 					if [ $IP == $ENDIP ]; then	#Test for ranges containing only 2 IP addresses
 						printf "network-object host %s\n" "$BEGINIP" >> $FQFP
 						printf "network-object host %s\n" "$ENDIP" >> $FQFP
@@ -183,14 +179,14 @@ if [[ -s $TEMP ]]; then
 	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
 	printf "group-object %s\n" "$2" >> $FQFP
 
-	#Exit object-group and remove blacklist file
+	#Exit object-group
 	printf "exit\n" >> $FQFP
-	rm -f $TEMP
 else
 	echo Invalid URL: $1
 	echo Skipping blacklist
 	printf "%s Invalid URL: %s\n" "$(date)" "$1" >> /var/log/blister.log
 fi
+rm -f $TEMP	# Remove blacklist file
 }
 
 # Remove previous log file
@@ -278,8 +274,7 @@ Parse $URL $OBJECTGROUP
 #DShield Block List
 DSHIELD=$FILEDIR"dshield"
 
-wget https://www.dshield.org/block.txt -q -O $TEMP
-if [[ -s $TEMP ]]; then
+if [[ $(curl -s -o $TEMP -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
 	tail -n +30 $TEMP > $DSHIELD
 	cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
 	rm -f $DSHIELD
@@ -290,7 +285,7 @@ if [[ -s $TEMP ]]; then
 	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
 
 	while read line; do
-		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then	#Check for commented and whitespace lines 
+		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then	#Check for commented and whitespace lines
 			CIDR=$(echo $line | cut -d'/' -f2)
 			IP=$(echo $line | cut -d'/' -f1)
 			NETMASK=$(mask $CIDR)
@@ -308,37 +303,12 @@ if [[ -s $TEMP ]]; then
 
 	##Exit object-group and remove blacklist file
 	printf "exit\n" >> $FQFP
-	rm -f $TEMP
 else
 	echo Invalid URL: https://www.dshield.org/block.txt
 	echo Skipping blacklist
 	printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
 fi
-
-#Shodan Web Crawlers
-curl -s https://isc.sans.edu/api/threatlist/shodan?json | jq '.[] | {ipv4}' | grep ':' | awk '{ print $2 }' | tr -d '"' > $TEMP
-if [[ -s $TEMP ]]; then
-	#Remove previous version of blacklist object-group and create a new one.
-	printf "no object-group network Shodan\n" >> $FQFP
-	printf "object-group network Shodan\n" >> $FQFP
-	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
-
-	while read line; do
-		printf "network-object host %s\n" "$line" >> $FQFP
-	done < $TEMP
-
-	#Add blacklist object-group to the Blocked object-group
-	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
-	printf "group-object Shodan\n" >> $FQFP
-
-	##Exit object-group and remove blacklist file
-	printf "exit\n" >> $FQFP
-	rm -f $TEMP
-else
-	echo Invalid URL: https://isc.sans.edu/api/threatlist/shodan?json
-	echo Skipping blacklist
-	printf "Invalid URL: https://isc.sans.edu/api/threatlist/shodan?json\n" >> /var/log/blister.log
-fi
+rm -f $TEMP
 
 ##Exit config t
 printf "exit\n\n" >> $FQFP
