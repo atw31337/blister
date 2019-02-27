@@ -23,79 +23,23 @@ RANGEMETHOD=2			#Must be either 1 or 2. Method 1 parses ranges into individual h
 mask () {
 #Evaluates CIDR notation and prints the Mask notation equivalent
 
-case "$1" in
-8)
-        echo "255.0.0.0"
-        ;;
-9)
-        echo "255.128.0.0"
-        ;;
-10)
-        echo "255.192.0.0"
-        ;;
-11)
-        echo "255.224.0.0"
-        ;;
-12)
-        echo "255.240.0.0"
-        ;;
-13)
-        echo "255.248.0.0"
-        ;;
-14)
-        echo "255.252.0.0"
-        ;;
-15)
-        echo "255.254.0.0"
-        ;;
-16)
-        echo "255.255.0.0"
-        ;;
-17)
-        echo "255.255.128.0"
-        ;;
-18)
-        echo "255.255.192.0"
-        ;;
-19)
-        echo "255.255.224.0"
-        ;;
-20)
-        echo "255.255.240.0"
-        ;;
-21)
-        echo "255.255.248.0"
-        ;;
-22)
-        echo "255.255.252.0"
-        ;;
-23)
-        echo "255.255.254.0"
-        ;;
-24)
-        echo "255.255.255.0"
-        ;;
-25)
-        echo "255.255.255.128"
-        ;;
-26)
-        echo "255.255.255.192"
-        ;;
-27)
-        echo "255.255.255.224"
-        ;;
-28)
-        echo "255.255.255.240"
-        ;;
-29)
-        echo "255.255.255.248"
-        ;;
-30)
-        echo "255.255.255.252"
-        ;;
-*)
-        (>&2 printf "Error: Failed to parse CIDR IPs. Invalid input format.\n\n")
-esac
+oct=$(($1 / 8 ))        # First octet that is not equal to 255
+mask[0]=255             # First octet must be 255
+for (( i=1; i < "$oct"; i++ )); do      # Set octets prior to $oct as 255
+        mask["$i"]=255
+done
+rem=$(( $1 % 8 )) # Determine the mask value for the first octect that is not equal to 255
+if [[ $rem -gt 0 ]]; then
+        expo=$(( 8 - rem ))
+        value=$(( 256 - 2**expo  ))
+        mask["$oct"]=$value
+fi
+for (( i=1; i<4; i++ )); do
+        if [[ -z ${mask["$i"]} ]]; then         # Set remaining octets to 0
+                mask["$i"]=0
+        fi
+done
+echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"      # Print the mask
 }
 
 Parse () {
