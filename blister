@@ -133,6 +133,12 @@ fi
 rm -f $TEMP	# Remove blacklist file
 }
 
+# Ensure that no other blister process is running
+if [[ $(pgrep -c blister) -gt 1 ]]; then
+	echo "Another instance of blister is already running"
+	exit
+fi
+
 # Remove previous log file
 if [[ -e /var/log/blister.log ]]; then
 	rm /var/log/blister.log
