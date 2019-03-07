@@ -106,7 +106,7 @@ if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 					else
 						printf "exit\n" >> $FQFP	#Exit out of the object-group in order to create the range object.
 						printf "object network %s\n" "$BEGINIP" >> $FQFP
-						printf "range $BEGINIP %s\n" "$ENDIP" >> $FQFP
+						printf "range %s %s\n" "$BEGINIP" "$ENDIP" >> $FQFP
 						printf "object-group network %s\n" "$2" >> $FQFP	#Re-enter the object-group in order to add the new range object.
 						printf "network-object object %s\n" "$BEGINIP" >> $FQFP
 					fi
