@@ -20,18 +20,18 @@ EMAIL=""			#Specify a destination email address if you would like the output ema
 RANGEMETHOD=2			#Must be either 1 or 2. Method 1 parses ranges into individual host IPs while method 2 parses ranges into range objects.
 ###########################################################################################################################
 
-mask () {
+mask() {
 #Evaluates CIDR notation and prints the Mask notation equivalent
 
-oct=$(($1 / 8 ))        # First octet that is not equal to 255
+oct=$(($1 / 8 ))        # First octet that is not equal to 255 (0-3)
 mask[0]=255             # First octet must be 255
 for (( i=1; i < "$oct"; i++ )); do      # Set octets prior to $oct as 255
         mask["$i"]=255
 done
-rem=$(( $1 % 8 )) # Determine the mask value for the first octect that is not equal to 255
-if [[ $rem -gt 0 ]]; then
-        expo=$(( 8 - rem ))
-        value=$(( 256 - 2**expo  ))
+mod=$(( $1 % 8 )) # Determine the mask value for the first octect that is not equal to 255
+if [[ $mod  -gt 0 ]]; then
+        expo=$(( 8 - mod ))
+        value=$(( 256 - 2**expo ))
         mask["$oct"]=$value
 fi
 for (( i=1; i<4; i++ )); do
@@ -42,7 +42,7 @@ done
 echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"      # Print the mask
 }
 
-Parse () {
+Parse() {
 
 if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 	#Remove previous version of blacklist object-group and create a new one.
