@@ -189,11 +189,11 @@ OBJECTGROUP="RansomwareCnC"
 
 Parse $URL $OBJECTGROUP
 
-#Zeus Tracker CnC Servers
-URL="https://zeustracker.abuse.ch/blocklist.php?download=badips"
-OBJECTGROUP="ZeusTracker"
-
-Parse $URL $OBJECTGROUP
+## Zues Tracker was dicontinued on Jul 8th, 2019
+# Zeus Tracker CnC Servers
+# URL="https://zeustracker.abuse.ch/blocklist.php?download=badips"
+# OBJECTGROUP="ZeusTracker"
+# Parse $URL $OBJECTGROUP
 
 #Malware Domain List
 URL="https://panwdbl.appspot.com/lists/mdl.txt"
