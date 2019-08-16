@@ -133,6 +133,48 @@ fi
 rm -f $TEMP	# Remove blacklist file
 }
 
+################################# Special Cases #######################################
+
+dshield_parse() {	#DShield Block List
+DSHIELD=$FILEDIR"dshield"
+
+if [[ $(curl -s -o $TEMP -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
+        tail -n +30 $TEMP > $DSHIELD
+        cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
+        rm -f $DSHIELD
+
+        #Remove previous version of blacklist object-group and create a new one.
+        printf "no object-group network DShield_Block_List\n" >> $FQFP
+        printf "object-group network DShield_Block_List\n" >> $FQFP
+        printf "description Retrieved: %s\n" "$(date)" >> $FQFP
+
+        while read line; do
+                if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
+                        CIDR=$(echo $line | cut -d'/' -f2)
+                        IP=$(echo $line | cut -d'/' -f1)
+                        NETMASK=$(mask $CIDR)
+                        printf "exit\n" >> $FQFP
+                        printf "object network $IP\n" >> $FQFP
+                        printf "subnet %s %s\n" "$IP" "$NETMASK" >> $FQFP
+                        printf "object-group network DShield_Block_List\n" >> $FQFP
+                        printf "network-object object %s\n" "$IP" >> $FQFP
+                fi
+        done < $TEMP
+
+        #Add blacklist object-group to the Blocked object-group
+        printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
+        printf "group-object DShield_Block_List\n" >> $FQFP
+
+        ##Exit object-group and remove blacklist file
+        printf "exit\n" >> $FQFP
+else
+        echo Invalid URL: https://www.dshield.org/block.txt
+        echo Skipping blacklist
+        printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
+fi
+rm -f $TEMP
+}
+
 # Ensure that no other blister process is running
 if [[ $(pgrep -c blister) -gt 1 ]]; then
 	echo "Another instance of blister is already running"
@@ -150,7 +192,7 @@ fi
 FQFP="$FILEDIR$FILENAME"		#Fully Qualified File Path of output file
 TEMP=$FILEDIR"temp"			#Temporary file used to store the blacklist that is being processed
 
-if [[ ! -d $FILEDIR ]]; then
+if ! [[ -d $FILEDIR ]]; then
         mkdir -p -m 664 $FILEDIR
 fi
 
@@ -219,46 +261,7 @@ OBJECTGROUP="FeodoTracker"
 
 Parse $URL $OBJECTGROUP
 
-################################# Special Cases #######################################
-
-#DShield Block List
-DSHIELD=$FILEDIR"dshield"
-
-if [[ $(curl -s -o $TEMP -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
-	tail -n +30 $TEMP > $DSHIELD
-	cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
-	rm -f $DSHIELD
-
-	#Remove previous version of blacklist object-group and create a new one.
-	printf "no object-group network DShield_Block_List\n" >> $FQFP
-	printf "object-group network DShield_Block_List\n" >> $FQFP
-	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
-
-	while read line; do
-		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then	#Check for commented and whitespace lines
-			CIDR=$(echo $line | cut -d'/' -f2)
-			IP=$(echo $line | cut -d'/' -f1)
-			NETMASK=$(mask $CIDR)
-			printf "exit\n" >> $FQFP
-			printf "object network $IP\n" >> $FQFP
-			printf "subnet %s %s\n" "$IP" "$NETMASK" >> $FQFP
-			printf "object-group network DShield_Block_List\n" >> $FQFP
-			printf "network-object object %s\n" "$IP" >> $FQFP
-		fi
-	done < $TEMP
-
-	#Add blacklist object-group to the Blocked object-group
-	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
-	printf "group-object DShield_Block_List\n" >> $FQFP
-
-	##Exit object-group and remove blacklist file
-	printf "exit\n" >> $FQFP
-else
-	echo Invalid URL: https://www.dshield.org/block.txt
-	echo Skipping blacklist
-	printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
-fi
-rm -f $TEMP
+dshield_parse
 
 ##Exit config t
 printf "exit\n\n" >> $FQFP
