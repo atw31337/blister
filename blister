@@ -1,12 +1,12 @@
 #!/bin/bash
-#Blister
-#Version: 2.3
-#Author: Andrew T. Withers (atw31337@gmail.com)
-#Description: This script will download and parse blacklists into ASA configuration format. Commented lines, lines starting with a '#', will be ignored.
-#All other lines must either contain a valid IPv4 or IPv6 address (192.168.1.0, fd08:23eb:5a25:7df1:0000:0000:0000:0001), a IPv4 subnet in CIDR notation
-#(192.168.1.0/24), or an IPv4 range (192.168.1.0-192.168.1.55). Lists that follow this format can be added or removed in the "Declare and Parse Blacklists"
-#section. Lists that do not follow this format will require case specific scripting that can be added to the "Special Cases" section. Feel free to contact me for
-#assistance or Special Case requests.
+# Blister
+# Author: Andrew T. Withers (atw31337@gmail.com)
+# Description: This script will download and parse blacklists into ASA configuration format. Commented lines, lines starting with a '#', will be ignored.
+# All other lines must either contain a valid IPv4 or IPv6 address (192.168.1.0, fd08:23eb:5a25:7df1:0000:0000:0000:0001), a IPv4 subnet in CIDR notation
+# (192.168.1.0/24), or an IPv4 range (192.168.1.0-192.168.1.55). A fqdn function has been added to enable the parsing of URL blacklists. Any URLs containing
+# wildcards will be removed because the ASA does not allow them to be used in FQDNs. Lists that follow these formats can be added or removed in the
+# "Declare and Parse Blacklists" section. Lists that do not follow these formats will require case specific scripting that can be added to the "Special Cases"
+# function section. Feel free to contact me for assistance or Special Case requests.
 
 
 
@@ -16,7 +16,7 @@
 FILEDIR="/opt/blister/"		#Define the directory location of the output file
 FILENAME="blister.output"	#Define the name of the output file
 BLOCKEDGROUP="BlockedIPs"	#Object group utilized in ACL to block malicious traffic
-EMAIL=""			#Specify a destination email address if you would like the output emailed to you. Note: Requires sendmail and an email server.
+EMAIL="cis@york.psu.edu"			#Specify a destination email address if you would like the output emailed to you. Note: Requires sendmail and an email server.
 RANGEMETHOD=2			#Must be either 1 or 2. Method 1 parses ranges into individual host IPs while method 2 parses ranges into range objects.
 ###########################################################################################################################
 
@@ -42,9 +42,25 @@ done
 echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"	# Print the mask
 }
 
-Parse() {
+fqdn_parse() {  # Parses URL blacklists
+# Remove wildcards and URL paths
+sed -i '/*/d' $fqdn && cat $fqdn | cut -d '/' -f1 | sort | uniq > $TEMP && rm -f $fqdn
 
+while read line; do
+	printf "exit\n" >> $FQFP
+	printf "object network %s\n" "$line" >> $FQFP
+	printf "fqdn %s\n" "$line" >> $FQFP
+	printf "object-group network %s\n" "$1" >> $FQFP
+	printf "network-object object %s\n" "$line" >> $FQFP
+done < $TEMP
+}
+
+Parse() {
+fqdn=$FILEDIR"fqdn"
 if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
+	# Remove http(s):// if it is present anywhere in the list
+	sed -i 's/https\?:\/\///g' $TEMP
+
 	#Remove previous version of blacklist object-group and create a new one.
 	printf "no object-group network %s\n" "$2" >> $FQFP
 	printf "object-group network %s\n" "$2" >> $FQFP
@@ -52,8 +68,20 @@ if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 
 	while read line; do
 		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]]; then	#Check for commented and whitespace lines
-			#Part 1: Parse all lines that are in CIDR notation
-			if echo $line | grep -q /; then
+			if echo "$line" | cut -d '/' -f1 | grep -q [A-Za-z]; then	# Separate FQDNs and IPv6 from IPv4
+				if echo "$line" | cut -d '/' -f1 | grep -q ':'; then	# IPv6
+					if ! grep -q "$(echo $line | cut -d '/' -f1)" $FQFP; then	# Check for duplicates
+						printf "network-object host %s\n" "$(echo $line | cut -d '/' -f1)" >> $FQFP
+					fi
+				else
+					printf "%s\n" "$line" >> "$fqdn"
+				fi
+			elif echo "$line" | grep -q [A-Za-z]; then	# IPv4 address with a path attached
+				if ! grep -q "$(echo $line | cut -d '/' -f1)" $FQFP; then	# Check for duplicates
+					printf "network-object host %s\n" "$(echo $line | cut -d '/' -f1)" >> $FQFP
+				fi
+			# Parse all lines that are in CIDR notation
+			elif echo $line | grep -q /; then
 				CIDR=$(echo $line | cut -d'/' -f2)
 				IP=$(echo $line | cut -d'/' -f1)
 				NETMASK=$(mask $CIDR)
@@ -63,7 +91,7 @@ if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 				printf "object-group network %s\n" "$2" >> $FQFP	#Re-enter object-group and add the new subnet object.
 				printf "network-object object %s\n" "$IP" >> $FQFP
 			elif echo $line | grep -q -; then
-				#Part 2: Parse all lines containing a range of IP addresses
+				# Parse all lines containing a range of IP addresses
 				BEGINIP=$(echo $line | cut -d'-' -f1)	#First IP in the range
 				ENDIP=$(echo $line | cut -d'-' -f2)		#Last IP in the range
 				OCT1=$(echo $BEGINIP | cut -d'.' -f1)	#First octect of starting IP
@@ -118,6 +146,10 @@ if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 			fi
 		fi
 	done < $TEMP
+	# Process FQDNs
+	if [[ -f "$fqdn" ]]; then
+		fqdn_parse $2
+	fi
 
 	#Add blacklist object-group to the Blocked object-group
 	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
@@ -130,7 +162,11 @@ else
 	echo Skipping blacklist
 	printf "%s Invalid URL: %s\n" "$(date)" "$1" >> /var/log/blister.log
 fi
-rm -f $TEMP	# Remove blacklist file
+
+# Remove temporary blacklist file
+if [[ -f $TEMP ]]; then
+	rm -f $TEMP
+fi
 }
 
 ################################# Special Cases #######################################
@@ -165,14 +201,18 @@ if [[ $(curl -s -o $TEMP -w "%{http_code}" https://www.dshield.org/block.txt) -e
 	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
 	printf "group-object DShield_Block_List\n" >> $FQFP
 
-	##Exit object-group and remove blacklist file
+	##Exit object-group
 	printf "exit\n" >> $FQFP
 else
 	echo Invalid URL: https://www.dshield.org/block.txt
 	echo Skipping blacklist
 	printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
 fi
-rm -f $TEMP
+
+# Remove temporary blacklist file
+if [[ -f $TEMP ]]; then
+	rm -f $TEMP
+fi
 }
 
 # Ensure that no other blister process is running
@@ -261,8 +301,14 @@ OBJECTGROUP="FeodoTracker"
 
 Parse $URL $OBJECTGROUP
 
-# DShield Block List
+#DShield Block List
 dshield_parse
+
+# Openphish phishing list
+URL="https://openphish.com/feed.txt"
+OBJECTGROUP="OpenPhish"
+
+Parse $URL $OBJECTGROUP
 
 ##Exit config t
 printf "exit\n\n" >> $FQFP
