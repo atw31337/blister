@@ -23,23 +23,23 @@ RANGEMETHOD=2			#Must be either 1 or 2. Method 1 parses ranges into individual h
 mask() {
 #Evaluates CIDR notation and prints the Mask notation equivalent
 
-oct=$(($1 / 8 ))        # First octet that is not equal to 255 (0-3)
-mask[0]=255             # First octet must be 255
-for (( i=1; i < "$oct"; i++ )); do      # Set octets prior to $oct as 255
-        mask["$i"]=255
+oct=$(($1 / 8 ))	# First octet that is not equal to 255 (0-3)
+mask[0]=255		# First octet must be 255
+for (( i=1; i < "$oct"; i++ )); do	# Set octets prior to $oct as 255
+	mask["$i"]=255
 done
-mod=$(( $1 % 8 )) # Determine the mask value for the first octect that is not equal to 255
+mod=$(( $1 % 8 ))	# Determine the mask value for the first octect that is not equal to 255
 if [[ $mod  -gt 0 ]]; then
-        expo=$(( 8 - mod ))
-        value=$(( 256 - 2**expo ))
-        mask["$oct"]=$value
+	expo=$(( 8 - mod ))
+	value=$(( 256 - 2**expo ))
+	mask["$oct"]=$value
 fi
 for (( i=1; i<4; i++ )); do
-        if [[ -z ${mask["$i"]} ]]; then         # Set remaining octets to 0
-                mask["$i"]=0
-        fi
+	if [[ -z ${mask["$i"]} ]]; then	# Set remaining octets to 0
+		mask["$i"]=0
+	fi
 done
-echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"      # Print the mask
+echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"	# Print the mask
 }
 
 Parse() {
@@ -139,38 +139,38 @@ dshield_parse() {	#DShield Block List
 DSHIELD=$FILEDIR"dshield"
 
 if [[ $(curl -s -o $TEMP -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
-        tail -n +30 $TEMP > $DSHIELD
-        cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
-        rm -f $DSHIELD
+	tail -n +30 $TEMP > $DSHIELD
+	cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
+	rm -f $DSHIELD
 
-        #Remove previous version of blacklist object-group and create a new one.
-        printf "no object-group network DShield_Block_List\n" >> $FQFP
-        printf "object-group network DShield_Block_List\n" >> $FQFP
-        printf "description Retrieved: %s\n" "$(date)" >> $FQFP
+	#Remove previous version of blacklist object-group and create a new one.
+	printf "no object-group network DShield_Block_List\n" >> $FQFP
+	printf "object-group network DShield_Block_List\n" >> $FQFP
+	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
 
-        while read line; do
-                if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
-                        CIDR=$(echo $line | cut -d'/' -f2)
-                        IP=$(echo $line | cut -d'/' -f1)
-                        NETMASK=$(mask $CIDR)
-                        printf "exit\n" >> $FQFP
-                        printf "object network $IP\n" >> $FQFP
-                        printf "subnet %s %s\n" "$IP" "$NETMASK" >> $FQFP
-                        printf "object-group network DShield_Block_List\n" >> $FQFP
-                        printf "network-object object %s\n" "$IP" >> $FQFP
-                fi
-        done < $TEMP
+	while read line; do
+		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
+			CIDR=$(echo $line | cut -d'/' -f2)
+			IP=$(echo $line | cut -d'/' -f1)
+			NETMASK=$(mask $CIDR)
+			printf "exit\n" >> $FQFP
+			printf "object network $IP\n" >> $FQFP
+			printf "subnet %s %s\n" "$IP" "$NETMASK" >> $FQFP
+			printf "object-group network DShield_Block_List\n" >> $FQFP
+			printf "network-object object %s\n" "$IP" >> $FQFP
+		fi
+	done < $TEMP
 
-        #Add blacklist object-group to the Blocked object-group
-        printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
-        printf "group-object DShield_Block_List\n" >> $FQFP
+	#Add blacklist object-group to the Blocked object-group
+	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
+	printf "group-object DShield_Block_List\n" >> $FQFP
 
-        ##Exit object-group and remove blacklist file
-        printf "exit\n" >> $FQFP
+	##Exit object-group and remove blacklist file
+	printf "exit\n" >> $FQFP
 else
-        echo Invalid URL: https://www.dshield.org/block.txt
-        echo Skipping blacklist
-        printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
+	echo Invalid URL: https://www.dshield.org/block.txt
+	echo Skipping blacklist
+	printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
 fi
 rm -f $TEMP
 }
@@ -193,7 +193,7 @@ FQFP="$FILEDIR$FILENAME"		#Fully Qualified File Path of output file
 TEMP=$FILEDIR"temp"			#Temporary file used to store the blacklist that is being processed
 
 if ! [[ -d $FILEDIR ]]; then
-        mkdir -p -m 664 $FILEDIR
+	mkdir -p -m 664 $FILEDIR
 fi
 
 printf "config t\n" > $FQFP
@@ -261,6 +261,7 @@ OBJECTGROUP="FeodoTracker"
 
 Parse $URL $OBJECTGROUP
 
+# DShield Block List
 dshield_parse
 
 ##Exit config t
