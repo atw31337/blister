@@ -32,7 +32,7 @@ mod=$(( $1 % 8 ))	# Determine the mask value for the first octect that is not eq
 if [[ $mod  -gt 0 ]]; then
 	expo=$(( 8 - mod ))
 	value=$(( 256 - 2**expo ))
-	mask["$oct"]=$value
+	mask["$oct"]="$value"
 fi
 for (( i=1; i<4; i++ )); do
 	if [[ -z ${mask["$i"]} ]]; then	# Set remaining octets to 0
@@ -44,72 +44,72 @@ echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"	# Print the mask
 
 fqdn_parse() {  # Parses URL blacklists
 # Remove wildcards and URL paths
-sed -i '/*/d' $fqdn && cat $fqdn | cut -d '/' -f1 | sort | uniq > $TEMP && rm -f $fqdn
+sed -i '/*/d' "$fqdn" && cut -d '/' -f1 "$fqdn" | sort | uniq > "$TEMP" && rm -f "$fqdn"
 
 while read line; do
-	printf "exit\n" >> $FQFP
-	printf "object network %s\n" "$line" >> $FQFP
-	printf "fqdn %s\n" "$line" >> $FQFP
-	printf "object-group network %s\n" "$1" >> $FQFP
-	printf "network-object object %s\n" "$line" >> $FQFP
-done < $TEMP
+	printf "exit\n" >> "$FQFP"
+	printf "object network %s\n" "$line" >> "$FQFP"
+	printf "fqdn %s\n" "$line" >> "$FQFP"
+	printf "object-group network %s\n" "$1" >> "$FQFP"
+	printf "network-object object %s\n" "$line" >> "$FQFP"
+done < "$TEMP"
 }
 
 Parse() {
 fqdn=$FILEDIR"fqdn"
-if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
+if [[ $(curl -s -o "$TEMP" -w "%{http_code}" "$1") -eq 200 ]]; then
 	# Remove http(s):// if it is present anywhere in the list
-	sed -i 's/https\?:\/\///g' $TEMP
+	sed -i 's/https\?:\/\///g' "$TEMP"
 
 	#Remove previous version of blacklist object-group and create a new one.
-	printf "no object-group network %s\n" "$2" >> $FQFP
-	printf "object-group network %s\n" "$2" >> $FQFP
-	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
+	printf "no object-group network %s\n" "$2" >> "$FQFP"
+	printf "object-group network %s\n" "$2" >> "$FQFP"
+	printf "description Retrieved: %s\n" "$(date)" >> "$FQFP"
 
 	while read line; do
-		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]]; then	#Check for commented and whitespace lines
-			if echo "$line" | cut -d '/' -f1 | grep -q [A-Za-z]; then	# Separate FQDNs and IPv6 from IPv4
+		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]]; then	#Check for commented and whitespace lines
+			if echo "$line" | cut -d '/' -f1 | grep -q '[A-Za-z]'; then	# Separate FQDNs and IPv6 from IPv4
 				if echo "$line" | cut -d '/' -f1 | grep -q ':'; then	# IPv6
-					if ! grep -q "$(echo $line | cut -d '/' -f1)" $FQFP; then	# Check for duplicates
-						printf "network-object host %s\n" "$(echo $line | cut -d '/' -f1)" >> $FQFP
+					if ! grep -q "$(echo $line | cut -d '/' -f1)" "$FQFP"; then	# Check for duplicates
+						printf "network-object host %s\n" "$(echo $line | cut -d '/' -f1)" >> "$FQFP"
 					fi
 				else
 					printf "%s\n" "$line" >> "$fqdn"
 				fi
-			elif echo "$line" | grep -q [A-Za-z]; then	# IPv4 address with a path attached
-				if ! grep -q "$(echo $line | cut -d '/' -f1)" $FQFP; then	# Check for duplicates
-					printf "network-object host %s\n" "$(echo $line | cut -d '/' -f1)" >> $FQFP
+			elif echo "$line" | grep -q '[A-Za-z]'; then	# IPv4 address with a path attached
+				if ! grep -q "$(echo $line | cut -d '/' -f1)" "$FQFP"; then	# Check for duplicates
+					printf "network-object host %s\n" "$(echo $line | cut -d '/' -f1)" >> "$FQFP"
 				fi
 			# Parse all lines that are in CIDR notation
-			elif echo $line | grep -q /; then
-				CIDR=$(echo $line | cut -d'/' -f2)
-				IP=$(echo $line | cut -d'/' -f1)
-				NETMASK=$(mask $CIDR)
-				printf "exit\n"	>> $FQFP	#Exit out of object-group in order to create the subnet object.
-				printf "object network %s\n" "$IP" >> $FQFP
-				printf "subnet %s %s\n" "$IP" "$NETMASK" >> $FQFP
-				printf "object-group network %s\n" "$2" >> $FQFP	#Re-enter object-group and add the new subnet object.
-				printf "network-object object %s\n" "$IP" >> $FQFP
-			elif echo $line | grep -q -; then
+			elif echo "$line" | grep -q /; then
+				CIDR=$(echo "$line" | cut -d'/' -f2)
+				IP=$(echo "$line" | cut -d'/' -f1)
+				NETMASK=$(mask "$CIDR")
+				printf "exit\n"	>> "$FQFP"	#Exit out of object-group in order to create the subnet object.
+				printf "object network %s\n" "$IP" >> "$FQFP"
+				printf "subnet %s %s\n" "$IP" "$NETMASK" >> "$FQFP"
+				printf "object-group network %s\n" "$2" >> "$FQFP"	#Re-enter object-group and add the new subnet object.
+				printf "network-object object %s\n" "$IP" >> "$FQFP"
+			elif echo "$line" | grep -q -; then
 				# Parse all lines containing a range of IP addresses
-				BEGINIP=$(echo $line | cut -d'-' -f1)	#First IP in the range
-				ENDIP=$(echo $line | cut -d'-' -f2)		#Last IP in the range
-				OCT1=$(echo $BEGINIP | cut -d'.' -f1)	#First octect of starting IP
-				OCT2=$(echo $BEGINIP | cut -d'.' -f2)	#Second octect of starting IP
-				OCT3=$(echo $BEGINIP | cut -d'.' -f3)	#Third octect of starting IP
-				OCT4=$(echo $BEGINIP | cut -d'.' -f4)	#Fourth octect of starting IP
+				BEGINIP=$(echo "$line" | cut -d'-' -f1)	#First IP in the range
+				ENDIP=$(echo "$line" | cut -d'-' -f2)		#Last IP in the range
+				OCT1=$(echo "$BEGINIP" | cut -d'.' -f1)	#First octect of starting IP
+				OCT2=$(echo "$BEGINIP" | cut -d'.' -f2)	#Second octect of starting IP
+				OCT3=$(echo "$BEGINIP" | cut -d'.' -f3)	#Third octect of starting IP
+				OCT4=$(echo "$BEGINIP" | cut -d'.' -f4)	#Fourth octect of starting IP
 
 				##Method 1: Parse ranges into individual host IPs
-				if [ $RANGEMETHOD -eq 1 ]; then
-					IP=$BEGINIP
-					printf "network-object host %s\n" "$BEGINIP" >> $FQFP
+				if [[ $RANGEMETHOD -eq 1 ]]; then
+					IP="$BEGINIP"
+					printf "network-object host %s\n" "$BEGINIP" >> "$FQFP"
 
-					while [ $IP != $ENDIP ]; do
-						if [ $OCT4 -eq 255 ]; then
+					while [[ $IP != $ENDIP ]]; do
+						if [[ $OCT4 -eq 255 ]]; then
 							OCT4=0
-							if [ $OCT3 -eq 255 ]; then
+							if [[ $OCT3 -eq 255 ]]; then
 								OCT3=0
-								if [ $OCT2 -eq 255 ]; then
+								if [[ $OCT2 -eq 255 ]]; then
 									OCT2=0
 									((OCT1+=1))
 								else
@@ -122,50 +122,50 @@ if [[ $(curl -s -o $TEMP -w "%{http_code}" $1) -eq 200 ]]; then
 							((OCT4+=1))
 						fi
 						IP="$OCT1.$OCT2.$OCT3.$OCT4"
-						printf "network-object host %s\n" "$IP" >> $FQFP
+						printf "network-object host %s\n" "$IP" >> "$FQFP"
 					done
 
-				elif [ $RANGEMETHOD -eq 2 ]; then	##Method 2: Create IP range objects
+				elif [[ $RANGEMETHOD -eq 2 ]]; then	##Method 2: Create IP range objects
 					((OCT4+=1))
 					IP="$OCT1.$OCT2.$OCT3.$OCT4"
-					if [ $IP == $ENDIP ]; then	#Test for ranges containing only 2 IP addresses
-						printf "network-object host %s\n" "$BEGINIP" >> $FQFP
-						printf "network-object host %s\n" "$ENDIP" >> $FQFP
+					if [[ "$IP" == "$ENDIP" ]]; then	#Test for ranges containing only 2 IP addresses
+						printf "network-object host %s\n" "$BEGINIP" >> "$FQFP"
+						printf "network-object host %s\n" "$ENDIP" >> "$FQFP"
 					else
-						printf "exit\n" >> $FQFP	#Exit out of the object-group in order to create the range object.
-						printf "object network %s\n" "$BEGINIP" >> $FQFP
-						printf "range %s %s\n" "$BEGINIP" "$ENDIP" >> $FQFP
-						printf "object-group network %s\n" "$2" >> $FQFP	#Re-enter the object-group in order to add the new range object.
-						printf "network-object object %s\n" "$BEGINIP" >> $FQFP
+						printf "exit\n" >> "$FQFP"	#Exit out of the object-group in order to create the range object.
+						printf "object network %s\n" "$BEGINIP" >> "$FQFP"
+						printf "range %s %s\n" "$BEGINIP" "$ENDIP" >> "$FQFP"
+						printf "object-group network %s\n" "$2" >> "$FQFP"	#Re-enter the object-group in order to add the new range object.
+						printf "network-object object %s\n" "$BEGINIP" >> "$FQFP"
 					fi
 				else
 					(>&2 printf "Error: Failed to parse range IPs. RANGEMETHOD has been improperly configured.\n\n")
 				fi
 			else	#Part 3: Parse remaining lines
-				printf "network-object host %s\n" "$line" >> $FQFP
+				printf "network-object host %s\n" "$line" >> "$FQFP"
 			fi
 		fi
-	done < $TEMP
+	done < "$TEMP"
 	# Process FQDNs
 	if [[ -f "$fqdn" ]]; then
-		fqdn_parse $2
+		fqdn_parse "$2"
 	fi
 
 	#Add blacklist object-group to the Blocked object-group
-	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
-	printf "group-object %s\n" "$2" >> $FQFP
+	printf "object-group network %s\n" "$BLOCKEDGROUP" >> "$FQFP"
+	printf "group-object %s\n" "$2" >> "$FQFP"
 
 	#Exit object-group
-	printf "exit\n" >> $FQFP
+	printf "exit\n" >> "$FQFP"
 else
-	echo Invalid URL: $1
+	echo "Invalid URL: $1"
 	echo Skipping blacklist
 	printf "%s Invalid URL: %s\n" "$(date)" "$1" >> /var/log/blister.log
 fi
 
 # Remove temporary blacklist file
 if [[ -f $TEMP ]]; then
-	rm -f $TEMP
+	rm -f "$TEMP"
 fi
 }
 
@@ -174,35 +174,35 @@ fi
 dshield_parse() {	#DShield Block List
 DSHIELD=$FILEDIR"dshield"
 
-if [[ $(curl -s -o $TEMP -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
-	tail -n +30 $TEMP > $DSHIELD
-	cat $DSHIELD | awk '{ print $1"/"$3 }' > $TEMP
-	rm -f $DSHIELD
+if [[ $(curl -s -o "$TEMP" -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
+	tail -n +30 "$TEMP" > "$DSHIELD"
+	awk '{ print $1"/"$3 }' "$DSHIELD" > "$TEMP"
+	rm -f "$DSHIELD"
 
 	#Remove previous version of blacklist object-group and create a new one.
-	printf "no object-group network DShield_Block_List\n" >> $FQFP
-	printf "object-group network DShield_Block_List\n" >> $FQFP
-	printf "description Retrieved: %s\n" "$(date)" >> $FQFP
+	printf "no object-group network DShield_Block_List\n" >> "$FQFP"
+	printf "object-group network DShield_Block_List\n" >> "$FQFP"
+	printf "description Retrieved: %s\n" "$(date)" >> "$FQFP"
 
 	while read line; do
-		if [[ $(echo $line | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
-			CIDR=$(echo $line | cut -d'/' -f2)
-			IP=$(echo $line | cut -d'/' -f1)
-			NETMASK=$(mask $CIDR)
-			printf "exit\n" >> $FQFP
-			printf "object network $IP\n" >> $FQFP
-			printf "subnet %s %s\n" "$IP" "$NETMASK" >> $FQFP
-			printf "object-group network DShield_Block_List\n" >> $FQFP
-			printf "network-object object %s\n" "$IP" >> $FQFP
+		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
+			CIDR=$(echo "$line" | cut -d'/' -f2)
+			IP=$(echo "$line" | cut -d'/' -f1)
+			NETMASK=$(mask "$CIDR")
+			printf "exit\n" >> "$FQFP"
+			printf "object network %s\n" "$IP" >> "$FQFP"
+			printf "subnet %s %s\n" "$IP" "$NETMASK" >> "$FQFP"
+			printf "object-group network DShield_Block_List\n" >> "$FQFP"
+			printf "network-object object %s\n" "$IP" >> "$FQFP"
 		fi
-	done < $TEMP
+	done < "$TEMP"
 
 	#Add blacklist object-group to the Blocked object-group
-	printf "object-group network %s\n" "$BLOCKEDGROUP" >> $FQFP
-	printf "group-object DShield_Block_List\n" >> $FQFP
+	printf "object-group network %s\n" "$BLOCKEDGROUP" >> "$FQFP"
+	printf "group-object DShield_Block_List\n" >> "$FQFP"
 
 	##Exit object-group
-	printf "exit\n" >> $FQFP
+	printf "exit\n" >> "$FQFP"
 else
 	echo Invalid URL: https://www.dshield.org/block.txt
 	echo Skipping blacklist
@@ -211,8 +211,21 @@ fi
 
 # Remove temporary blacklist file
 if [[ -f $TEMP ]]; then
-	rm -f $TEMP
+	rm -f "$TEMP"
 fi
+}
+
+usage() {
+cat <<EOF
+
+Blister - Blacklist to ASA Command Parsing Script
+Usage: blister [OPTION]
+
+	Options:
+		-h	Usage
+		-a	Send output as an email attachment
+
+EOF
 }
 
 # Ensure that no other blister process is running
@@ -220,6 +233,27 @@ if [[ $(pgrep -c blister) -gt 1 ]]; then
 	echo "Another instance of blister is already running"
 	exit
 fi
+
+# Set the attachment flag to 0
+attach=0
+
+# Parse options
+while getopts ":ha" OPT; do
+        case "$OPT" in
+		h)
+			usage
+			exit 0
+			;;
+		a)
+			attach=1
+			;;
+		\?)
+			echo "Invalid option"
+			usage
+			exit 0
+			;;
+	esac
+done
 
 # Remove previous log file
 if [[ -e /var/log/blister.log ]]; then
@@ -233,10 +267,10 @@ FQFP="$FILEDIR$FILENAME"		#Fully Qualified File Path of output file
 TEMP=$FILEDIR"temp"			#Temporary file used to store the blacklist that is being processed
 
 if ! [[ -d $FILEDIR ]]; then
-	mkdir -p -m 664 $FILEDIR
+	mkdir -p -m 664 "$FILEDIR"
 fi
 
-printf "config t\n" > $FQFP
+printf "config t\n" > "$FQFP"
 
 
 ##################### Declare and Parse Blacklists ######################
@@ -245,61 +279,61 @@ printf "config t\n" > $FQFP
 URL="https://panwdbl.appspot.com/lists/shdrop.txt"
 OBJECTGROUP="SpamhausDropList"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #CINS Active Threats Intelligence
 URL="http://cinsscore.com/list/ci-badguys.txt"
 OBJECTGROUP="CINS_ActiveThreats"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #Tor Network	Note: This blacklist can only be downloaded once every 30 minutes.
 URL="https://www.dan.me.uk/torlist/"
 OBJECTGROUP="Tor_Network"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #ET Known Compromised or Hostile Traffic Hosts
 URL="https://rules.emergingthreats.net/blockrules/compromised-ips.txt"
 OBJECTGROUP="ETKnownCompromised"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #Ransomeware Tracker CnC Servers
 URL="https://ransomwaretracker.abuse.ch/downloads/RW_IPBL.txt"
 OBJECTGROUP="RansomwareCnC"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 ## Zues Tracker was dicontinued on Jul 8th, 2019
 # Zeus Tracker CnC Servers
 # URL="https://zeustracker.abuse.ch/blocklist.php?download=badips"
 # OBJECTGROUP="ZeusTracker"
-# Parse $URL $OBJECTGROUP
+# Parse "$URL" "$OBJECTGROUP"
 
 #Malware Domain List
 URL="https://panwdbl.appspot.com/lists/mdl.txt"
 OBJECTGROUP="MalwareDomainList"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #Brute Force Blocker
 URL="https://panwdbl.appspot.com/lists/bruteforceblocker.txt"
 OBJECTGROUP="BruteForceBlocker"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #SSL Abuse List
 URL="https://panwdbl.appspot.com/lists/sslabuseiplist.txt"
 OBJECTGROUP="SSLAbuseList"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #Feodo Tracker CnC Servers
 URL="https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
 OBJECTGROUP="FeodoTracker"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 #DShield Block List
 dshield_parse
@@ -308,17 +342,21 @@ dshield_parse
 URL="https://openphish.com/feed.txt"
 OBJECTGROUP="OpenPhish"
 
-Parse $URL $OBJECTGROUP
+Parse "$URL" "$OBJECTGROUP"
 
 ##Exit config t
-printf "exit\n\n" >> $FQFP
+printf "exit\n\n" >> "$FQFP"
 
 ################################## Email Output ########################################
 if [ ! -z "$EMAIL" ]; then	#Check if an email address has been configured
-	printf "To: %s\nSubject: ASA Blacklist Config\nFrom: Blister\n\n" "$EMAIL" > $TEMP
-	cat $FQFP >> $TEMP
-	sendmail -vt < $TEMP
-	rm -f $TEMP
+	if [[ $attach -eq 1 ]]; then
+		echo "ASA Blacklist Config" | mutt -a "$FQFP" -- "$EMAIL"
+	else
+		printf "To: %s\nSubject: ASA Blacklist Config\nFrom: Blister\n\n" "$EMAIL" > "$TEMP"
+		cat "$FQFP" >> "$TEMP"
+		sendmail -vt < "$TEMP"
+		rm -f "$TEMP"
+	fi
 fi
 
 exit
