@@ -16,7 +16,7 @@
 FILEDIR="/opt/blister/"		#Define the directory location of the output file
 FILENAME="blister.output"	#Define the name of the output file
 BLOCKEDGROUP="BlockedIPs"	#Object group utilized in ACL to block malicious traffic
-RECIPIENT=""			#Specify a destination email address if you would like the output emailed to you. Note: Requires sendmail and an email server.
+RECIPIENT=""			#Specify a destination email address if you would like the output emailed to you. Note: Requires mutt and an email server.
 RANGEMETHOD=2			#Must be either 1 or 2. Method 1 parses ranges into individual host IPs while method 2 parses ranges into range objects.
 ###########################################################################################################################
 
