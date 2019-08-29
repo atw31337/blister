@@ -338,11 +338,12 @@ Parse "$URL" "$OBJECTGROUP"
 #DShield Block List
 dshield_parse
 
+# Caution: May cause legitimate sites on the same host to be blocked
 # Openphish phishing list
-URL="https://openphish.com/feed.txt"
-OBJECTGROUP="OpenPhish"
+# URL="https://openphish.com/feed.txt"
+# OBJECTGROUP="OpenPhish"
 
-Parse "$URL" "$OBJECTGROUP"
+# Parse "$URL" "$OBJECTGROUP"
 
 ##Exit config t
 printf "exit\n\n" >> "$FQFP"
