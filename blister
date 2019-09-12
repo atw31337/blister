@@ -42,6 +42,21 @@ done
 echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"	# Print the mask
 }
 
+check_source() {
+if [[ $FILE -eq 1 ]]; then
+	if [[ -f $1 ]]; then
+		cp "$1" "$TEMP"
+	else
+		echo "blister: $FILE does not exist"
+		exit 1
+	fi
+elif [[ $(curl -s -o "$TEMP" -w "%{http_code}" "$1") -eq 200 ]]; then
+	:
+else
+	[[ -f $TEMP ]] && rm "$TEMP"
+fi
+}
+
 fqdn_parse() {  # Parses URL blacklists
 # Remove wildcards and URL paths
 sed -i '/*/d' "$fqdn" && cut -d '/' -f1 "$fqdn" | sort | uniq > "$TEMP" && rm -f "$fqdn"
@@ -57,11 +72,16 @@ done < "$TEMP"
 
 Parse() {
 fqdn=$FILEDIR"fqdn"
-if [[ $(curl -s -o "$TEMP" -w "%{http_code}" "$1") -eq 200 ]]; then
+
+# If the temp file exists remove it
+[[ -f $TEMP ]] && rm "$TEMP"
+
+check_source "$1"
+if [[ -f $TEMP ]]; then
 	# Remove http(s):// if it is present anywhere in the list
 	sed -i 's/https\?:\/\///g' "$TEMP"
 
-	#Remove previous version of blacklist object-group and create a new one.
+	# Remove previous version of blacklist object-group and create a new one.
 	printf "no object-group network %s\n" "$2" >> "$FQFP"
 	printf "object-group network %s\n" "$2" >> "$FQFP"
 	printf "description Retrieved: %s\n" "$(date)" >> "$FQFP"
@@ -164,9 +184,7 @@ else
 fi
 
 # Remove temporary blacklist file
-if [[ -f $TEMP ]]; then
-	rm -f "$TEMP"
-fi
+[[ -f $TEMP ]] && rm -f "$TEMP"
 }
 
 ################################# Special Cases #######################################
@@ -222,8 +240,9 @@ Blister - Blacklist to ASA Command Parsing Script
 Usage: blister [OPTION]
 
 	Options:
-		-h	Usage
-		-a	Send output as an email attachment
+		-h		Usage
+		-a		Send output as an email attachment
+		-f <FILE>	Parse a single list from a local file
 
 EOF
 }
@@ -236,16 +255,22 @@ fi
 
 # Set the attachment flag to 0
 attach=0
+# Set the file source flag to 0
+FILE=0
 
 # Parse options
-while getopts ":ha" OPT; do
-        case "$OPT" in
+while getopts ":haf:" OPT; do
+	case "$OPT" in
 		h)
 			usage
 			exit 0
 			;;
 		a)
 			attach=1
+			;;
+		f)
+			FILE=1
+			SOURCE="$OPTARG"
 			;;
 		\?)
 			echo "Invalid option"
@@ -254,6 +279,7 @@ while getopts ":ha" OPT; do
 			;;
 	esac
 done
+
 
 # Remove previous log file
 if [[ -e /var/log/blister.log ]]; then
@@ -272,6 +298,17 @@ fi
 
 printf "config t\n" > "$FQFP"
 
+################################################# Single List Local File ##################################################
+
+if [[ $FILE -eq 1 ]]; then
+	while [[ -z $OBJECTGROUP ]]; do
+		read -p "Please enter an object group name for this list: " OBJECTGROUP
+		if [[ -z $OBJECTGROUP ]]; then
+			echo "An object group name is required"
+		fi
+	done
+	Parse "$SOURCE" "$OBJECTGROUP"
+else
 
 ##################### Declare and Parse Blacklists ######################
 
@@ -344,6 +381,8 @@ dshield_parse
 # OBJECTGROUP="OpenPhish"
 
 # Parse "$URL" "$OBJECTGROUP"
+
+fi
 
 ##Exit config t
 printf "exit\n\n" >> "$FQFP"
