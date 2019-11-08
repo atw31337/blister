@@ -43,17 +43,19 @@ echo "${mask[0]}.${mask[1]}.${mask[2]}.${mask[3]}"	# Print the mask
 }
 
 check_source() {
-if [[ $FILE -eq 1 ]]; then
+if [[ -n $file ]]; then
 	if [[ -f $1 ]]; then
 		cp "$1" "$TEMP"
 	else
-		echo "blister: $FILE does not exist"
+		echo "blister: $1 does not exist"
+		[[ -f $TEMP ]] && rm "$TEMP"
+		[[ -f $fqdn ]] && rm "$fqdn"
 		exit 1
 	fi
 elif [[ $(curl -s -o "$TEMP" -w "%{http_code}" "$1") -eq 200 ]]; then
 	:
 else
-	[[ -f $TEMP ]] && rm "$TEMP"
+	[[ -f $TEMP ]] && rm -f "$TEMP"
 fi
 }
 
@@ -71,10 +73,8 @@ done < "$TEMP"
 }
 
 Parse() {
-fqdn=$FILEDIR"fqdn"
-
-# If the temp file exists remove it
-[[ -f $TEMP ]] && rm "$TEMP"
+TEMP="$(mktemp)"	# Temporary file used to store the blacklist that is being processed
+fqdn="$(mktemp)"	# Temporary file to store any lines that contain FQDNs
 
 check_source "$1"
 if [[ -f $TEMP ]]; then
@@ -82,9 +82,9 @@ if [[ -f $TEMP ]]; then
 	sed -i 's/https\?:\/\///g' "$TEMP"
 
 	# Remove previous version of blacklist object-group and create a new one.
-	printf "no object-group network %s\n" "$2" >> "$FQFP"
+	[[ -z $append ]] && printf "no object-group network %s\n" "$2" >> "$FQFP"
 	printf "object-group network %s\n" "$2" >> "$FQFP"
-	printf "description Retrieved: %s\n" "$(date)" >> "$FQFP"
+	printf "description Modified: %s\n" "$(date)" >> "$FQFP"
 
 	while read line; do
 		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]]; then	#Check for commented and whitespace lines
@@ -166,14 +166,17 @@ if [[ -f $TEMP ]]; then
 			fi
 		fi
 	done < "$TEMP"
+
 	# Process FQDNs
-	if [[ -f "$fqdn" ]]; then
+	if [[ -s "$fqdn" ]]; then
 		fqdn_parse "$2"
 	fi
 
-	#Add blacklist object-group to the Blocked object-group
-	printf "object-group network %s\n" "$BLOCKEDGROUP" >> "$FQFP"
-	printf "group-object %s\n" "$2" >> "$FQFP"
+	if [[ -z $append ]]; then
+		#Add blacklist object-group to the Blocked object-group
+		printf "object-group network %s\n" "$BLOCKEDGROUP" >> "$FQFP"
+		printf "group-object %s\n" "$2" >> "$FQFP"
+	fi
 
 	#Exit object-group
 	printf "exit\n" >> "$FQFP"
@@ -183,14 +186,16 @@ else
 	printf "%s Invalid URL: %s\n" "$(date)" "$1" >> /var/log/blister.log
 fi
 
-# Remove temporary blacklist file
+# Remove temporary files
 [[ -f $TEMP ]] && rm -f "$TEMP"
+[[ -f $fqdn ]] && rm -f "$fqdn"
 }
 
 ################################# Special Cases #######################################
 
 dshield_parse() {	#DShield Block List
-DSHIELD=$FILEDIR"dshield"
+DSHIELD="$(mktemp)"
+TEMP="$(mktemp)"	#Temporary file used to store the blacklist that is being processed
 
 if [[ $(curl -s -o "$TEMP" -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
 	tail -n +30 "$TEMP" > "$DSHIELD"
@@ -198,9 +203,9 @@ if [[ $(curl -s -o "$TEMP" -w "%{http_code}" https://www.dshield.org/block.txt) 
 	rm -f "$DSHIELD"
 
 	#Remove previous version of blacklist object-group and create a new one.
-	printf "no object-group network DShield_Block_List\n" >> "$FQFP"
+	[[ -z $append ]] && printf "no object-group network DShield_Block_List\n" >> "$FQFP"
 	printf "object-group network DShield_Block_List\n" >> "$FQFP"
-	printf "description Retrieved: %s\n" "$(date)" >> "$FQFP"
+	printf "description Modified: %s\n" "$(date)" >> "$FQFP"
 
 	while read line; do
 		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
@@ -215,9 +220,11 @@ if [[ $(curl -s -o "$TEMP" -w "%{http_code}" https://www.dshield.org/block.txt) 
 		fi
 	done < "$TEMP"
 
-	#Add blacklist object-group to the Blocked object-group
-	printf "object-group network %s\n" "$BLOCKEDGROUP" >> "$FQFP"
-	printf "group-object DShield_Block_List\n" >> "$FQFP"
+	if [[ -z $append ]]; then
+		#Add blacklist object-group to the Blocked object-group
+		printf "object-group network %s\n" "$BLOCKEDGROUP" >> "$FQFP"
+		printf "group-object DShield_Block_List\n" >> "$FQFP"
+	fi
 
 	##Exit object-group
 	printf "exit\n" >> "$FQFP"
@@ -228,9 +235,7 @@ else
 fi
 
 # Remove temporary blacklist file
-if [[ -f $TEMP ]]; then
-	rm -f "$TEMP"
-fi
+[[ -f $TEMP ]] && rm -f "$TEMP"
 }
 
 usage() {
@@ -242,24 +247,15 @@ Usage: blister [OPTION]
 	Options:
 		-h		Usage
 		-a		Send output as an email attachment
-		-f <FILE>	Parse a single list from a local file
+		-A		Appends list(s) instead of replacing
+		-f <FILE>	Parses a single list from a local file
+		-o <FILE>	Specifies the name of the output file
 
 EOF
 }
 
-# Ensure that no other blister process is running
-if [[ $(pgrep -c blister) -gt 1 ]]; then
-	echo "Another instance of blister is already running"
-	exit
-fi
-
-# Set the attachment flag to 0
-attach=0
-# Set the file source flag to 0
-FILE=0
-
 # Parse options
-while getopts ":haf:" OPT; do
+while getopts ":haAf:o:" OPT; do
 	case "$OPT" in
 		h)
 			usage
@@ -268,39 +264,57 @@ while getopts ":haf:" OPT; do
 		a)
 			attach=1
 			;;
+		A)
+			append=1
+			;;
 		f)
-			FILE=1
+			file=1
 			SOURCE="$OPTARG"
 			;;
+		o)
+			FILENAME="$OPTARG"
+			;;
+		:)
+			echo "Invalid option: $OPTARG requires an argument"
+			usage
+			exit 0
+			;;
 		\?)
-			echo "Invalid option"
+			echo "Invalid option: $OPTARG"
 			usage
 			exit 0
 			;;
 	esac
 done
 
-
-# Remove previous log file
-if [[ -e /var/log/blister.log ]]; then
-	rm /var/log/blister.log
+# Check if another instance of blister is running before proceeding.
+if [[ $(pgrep -c blister) -gt 1 ]]; then
+        echo "One or more instances of blister are already running."
+	echo "The integrity of the output will be compromised if multiple instances use the same output filename."
+	read -p "Do you want to continue? [y/N]: " answer
+	if [[ ${answer,,} == 'y' ]]; then
+		:
+	else
+		exit 0
+	fi
 fi
 
+# Remove previous log file
+[[ -e /var/log/blister.log ]] && rm /var/log/blister.log
 
 ###################################### Set File Locations and Enter Config Mode ##########################################
 
 FQFP="$FILEDIR$FILENAME"		#Fully Qualified File Path of output file
-TEMP=$FILEDIR"temp"			#Temporary file used to store the blacklist that is being processed
 
 if ! [[ -d $FILEDIR ]]; then
-	mkdir -p -m 664 "$FILEDIR"
+	mkdir -pm 664 "$FILEDIR"
 fi
 
 printf "config t\n" > "$FQFP"
 
 ################################################# Single List Local File ##################################################
 
-if [[ $FILE -eq 1 ]]; then
+if [[ -n $file ]]; then
 	while [[ -z $OBJECTGROUP ]]; do
 		read -p "Please enter an object group name for this list: " OBJECTGROUP
 		if [[ -z $OBJECTGROUP ]]; then
@@ -388,15 +402,12 @@ fi
 printf "exit\n\n" >> "$FQFP"
 
 ################################## Email Output ########################################
-if [ ! -z "$RECIPIENT" ]; then	#Check if an email address has been configured
-	if [[ $attach -eq 1 ]]; then
+if [[ -n "$RECIPIENT" ]]; then	#Check if an email address has been configured
+	if [[ -n $attach ]]; then
 		echo "Blister output" | EMAIL="Blister" mutt -a "$FQFP" -s "ASA Blacklist Config" -- "$RECIPIENT"
 	else
 		cat "$FQFP" | EMAIL="Blister" mutt -s "ASA Blacklist Config" -- "$RECIPIENT"
 	fi
-fi
-if [[ -f $TEMP ]]; then
-	rm $TEMP
 fi
 
 exit
