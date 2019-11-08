@@ -47,7 +47,7 @@ if [[ $FILE -eq 1 ]]; then
 	if [[ -f $1 ]]; then
 		cp "$1" "$TEMP"
 	else
-		echo "blister: $FILE does not exist"
+		echo "blister: $1 does not exist"
 		exit 1
 	fi
 elif [[ $(curl -s -o "$TEMP" -w "%{http_code}" "$1") -eq 200 ]]; then
