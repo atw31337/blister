@@ -65,7 +65,7 @@ fi
 }
 
 mask() {
-#Evaluates CIDR notation and prints the Mask notation equivalent
+# Evaluates CIDR notation and prints the Mask notation equivalent
 
 oct=$(($1 / 8 ))	# First octet that is not equal to 255 (0-3)
 mask[0]=255		# First octet must be 255
@@ -134,7 +134,7 @@ if [[ -f $tempIn ]]; then
 	printf "description Modified: %s\n" "$(date)" >> "$tempOut"
 
 	while read line; do
-		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]]; then	#Check for commented and whitespace lines
+		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]]; then	# Check for commented and whitespace lines
 			if echo "$line" | cut -d '/' -f1 | grep -q '[A-Za-z]'; then	# Separate FQDNs and IPv6 from IPv4
 				if echo "$line" | cut -d '/' -f1 | grep -q ':'; then	# IPv6
 					if ! grep -q "$(echo $line | cut -d '/' -f1)" "$tempOut"; then	# Check for duplicates
@@ -166,7 +166,7 @@ if [[ -f $tempIn ]]; then
 				OCT3=$(echo "$BEGINIP" | cut -d'.' -f3)	#Third octect of starting IP
 				OCT4=$(echo "$BEGINIP" | cut -d'.' -f4)	#Fourth octect of starting IP
 
-				##Method 1: Parse ranges into individual host IPs
+				## Method 1: Parse ranges into individual host IPs
 				if [[ $RANGEMETHOD -eq 1 ]]; then
 					IP="$BEGINIP"
 					printf "network-object host %s\n" "$BEGINIP" >> "$tempOut"
@@ -192,17 +192,17 @@ if [[ -f $tempIn ]]; then
 						printf "network-object host %s\n" "$IP" >> "$tempOut"
 					done
 
-				elif [[ $RANGEMETHOD -eq 2 ]]; then	##Method 2: Create IP range objects
+				elif [[ $RANGEMETHOD -eq 2 ]]; then	## Method 2: Create IP range objects
 					((OCT4+=1))
 					IP="$OCT1.$OCT2.$OCT3.$OCT4"
-					if [[ "$IP" == "$ENDIP" ]]; then	#Test for ranges containing only 2 IP addresses
+					if [[ "$IP" == "$ENDIP" ]]; then	# Test for ranges containing only 2 IP addresses
 						printf "network-object host %s\n" "$BEGINIP" >> "$tempOut"
 						printf "network-object host %s\n" "$ENDIP" >> "$tempOut"
 					else
-						printf "exit\n" >> "$tempOut"	#Exit out of the object-group in order to create the range object.
+						printf "exit\n" >> "$tempOut"	# Exit out of the object-group in order to create the range object.
 						printf "object network %s\n" "$BEGINIP" >> "$tempOut"
 						printf "range %s %s\n" "$BEGINIP" "$ENDIP" >> "$tempOut"
-						printf "object-group network %s\n" "$2" >> "$tempOut"	#Re-enter the object-group in order to add the new range object.
+						printf "object-group network %s\n" "$2" >> "$tempOut"	# Re-enter the object-group in order to add the new range object.
 						printf "network-object object %s\n" "$BEGINIP" >> "$tempOut"
 					fi
 				else
@@ -241,49 +241,53 @@ fi
 [[ -f /opt/blister/threads/"$BASHPID.pid" ]] && rm /opt/blister/threads/"$BASHPID.pid"
 }
 
-dshield_parse() {	#DShield Block List
+dshield_parse() {		# DShield Block List
 DSHIELD="$(mktemp)"
-tempIn="$(mktemp)"	#Temporary file used to store the blacklist that is being processed
+tempIn="/tmp/$BASHPID.in"	# Temporary file used to store the blacklist that is being processed
+tempOut="/tmp/$BASHPID.out"	# Temporary file that contains the output of the list that is being parsed
 
-if [[ $(curl -s -o "$tempIn" -w "%{http_code}" https://www.dshield.org/block.txt) -eq 200 ]]; then
+if [[ $(curl -s -o "$tempIn" -w "%{http_code}" "$1") -eq 200 ]]; then
 	tail -n +30 "$tempIn" > "$DSHIELD"
 	awk '{ print $1"/"$3 }' "$DSHIELD" > "$tempIn"
 	rm -f "$DSHIELD"
 
-	#Remove previous version of blacklist object-group and create a new one.
-	[[ -z $append ]] && printf "no object-group network DShield_Block_List\n" >> "$tempOut"
-	printf "object-group network DShield_Block_List\n" >> "$tempOut"
+	# Remove previous version of blacklist object-group and create a new one.
+	[[ -z $append ]] && printf "no object-group network %s\n" "$2" >> "$tempOut"
+	printf "object-group network %s\n" "$2" >> "$tempOut"
 	printf "description Modified: %s\n" "$(date)" >> "$tempOut"
 
 	while read line; do
-		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    #Check for commented and whitespace lines
+		if [[ $(echo "$line" | head -c 1) != "#" ]] && [[ -n "$line" ]] ; then    # Check for commented and whitespace lines
 			CIDR=$(echo "$line" | cut -d'/' -f2)
 			IP=$(echo "$line" | cut -d'/' -f1)
 			NETMASK=$(mask "$CIDR")
 			printf "exit\n" >> "$tempOut"
 			printf "object network %s\n" "$IP" >> "$tempOut"
 			printf "subnet %s %s\n" "$IP" "$NETMASK" >> "$tempOut"
-			printf "object-group network DShield_Block_List\n" >> "$tempOut"
+			printf "object-group network %s\n" "$2" >> "$tempOut"
 			printf "network-object object %s\n" "$IP" >> "$tempOut"
 		fi
 	done < "$tempIn"
 
 	if [[ -z $append ]]; then
-		#Add blacklist object-group to the Blocked object-group
+		# Add blacklist object-group to the Blocked object-group
 		printf "object-group network %s\n" "blockedGroup" >> "$tempOut"
-		printf "group-object DShield_Block_List\n" >> "$tempOut"
+		printf "group-object %s\n" "$2"  >> "$tempOut"
 	fi
 
-	##Exit object-group
+	## Exit object-group
 	printf "exit\n" >> "$tempOut"
 else
 	echo Invalid URL: https://www.dshield.org/block.txt
 	echo Skipping blacklist
-	printf "Invalid URL: https://www.dshield.org/block.txt\n" >> /var/log/blister.log
+	printf "Invalid URL: %s\n" "$1" >> /var/log/blister.log
 fi
 
 # Remove temporary blacklist file
 [[ -f $tempIn ]] && rm -f "$tempIn"
+
+# Remove thread PID from the threads directory
+[[ -f /opt/blister/threads/"$BASHPID.pid" ]] && rm /opt/blister/threads/"$BASHPID.pid"
 }
 
 writeOut() {
@@ -303,7 +307,7 @@ for i in "${lists[@]}"; do
 	fi
 done
 
-#Exit config t
+# Exit config t
 printf "exit\n\n" >> "$fileOut"
 }
 
@@ -359,18 +363,13 @@ done
 
 # Check if another instance of blister is running before proceeding.
 if [[ $(pgrep -c blister) -gt 1 ]]; then
-        echo "One or more instances of blister are already running."
-	echo "The integrity of the output will be compromised if multiple instances use the same output filename."
-	read -p "Do you want to continue? [y/N]: " answer
-	if [[ ${answer,,} == 'y' ]]; then
-		:
-	else
-		exit 0
-	fi
+        echo "Another instance of blister is already running. Please try again once it has completed."
+	exit 0
 fi
 
-# Create directories
-[[ -d /opt/blister/threads ]] || mkdir -pm 644 /opt/blister/threads
+# Clear the threads directory if it exists
+[[ -d /opt/blister/threads ]] && rm -rf /opt/blister/threads
+mkdir -pm 644 /opt/blister/threads
 
 # Run setup if /etc/blister.conf does not exist
 [[ -e /etc/blister.conf ]] || setup
@@ -398,6 +397,13 @@ if [[ -n $file ]]; then
 	exit
 fi
 
+if ! [[ -f /opt/blister/blacklists ]]; then
+	echo "/opt/blister/blacklists does not exist!"
+	echo "Exiting..."
+	[[ -d /opt/blister/threads ]] && rm -rf /opt/blister/threads
+	exit 1
+fi
+
 while read -r line; do
 	if echo "$line" | grep -vq "^#\|^$"; then
 		objectGroup="$(echo $line | cut -d'=' -f1)"	# The group object that this list will be placed in
@@ -405,8 +411,13 @@ while read -r line; do
 		while [[ $(find /opt/blister/threads/ | wc -l) -ge $maxThreads ]]; do	# Ensure that the  number of threads does not surpass the max number
 			sleep 3
 		done
-		parse "$URL" "$objectGroup" &
-		thread="$!"			# Thread PID
+		if [[ $URL == 'https://www.dshield.org/block.txt' ]]; then
+			dshield_parse "$URL" "$objectGroup" &
+			thread="$!"			# Thread PID
+		else
+			parse "$URL" "$objectGroup" &
+			thread="$!"			# Thread PID
+		fi
 		touch /opt/blister/threads/"$thread.pid"	# Log the thread PID in the active threads directory
 		lists+=("$thread")	# Add the PID to the list of all PIDs for use during output
 	fi
@@ -419,13 +430,8 @@ wait
 writeOut
 
 
-#DShield Block List
-#dshield_parse
-
-
-
 ################################## Email Output ########################################
-if [[ -n "$email" ]]; then	#Check if an email address has been configured
+if [[ -n "$email" ]]; then	# Check if an email address has been configured
 	if [[ -n $attach ]]; then
 		echo "Blister output" | EMAIL="Blister" mutt -a "$fileOut" -s "ASA Blacklist Config" -- "$email"
 	else
