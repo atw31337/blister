@@ -311,6 +311,16 @@ done
 printf "exit\n\n" >> "$fileOut"
 }
 
+send() {
+# Send email
+if [[ -n "$email" ]]; then      # Check if an email address has been configured
+        if [[ -n $attach ]]; then
+                echo "Blister output" | EMAIL="Blister" mutt -a "$fileOut" -s "ASA Blacklist Config" -- "$email"
+        else
+                cat "$fileOut" | EMAIL="Blister" mutt -s "ASA Blacklist Config" -- "$email"
+        fi
+fi
+}
 
 usage() {
 cat <<EOF
@@ -392,7 +402,8 @@ if [[ -n $file ]]; then
 	parse "$source" "$objectGroup" &
 	lists=($!)
 	wait	# Wait for parser to finish
-	writeOut
+	writeOut	# Write to output file
+	send	# Send email if address exists
 	[[ -d /opt/blister/threads ]] && rm -rf /opt/blister/threads
 	exit
 fi
@@ -430,14 +441,8 @@ wait
 writeOut
 
 
-################################## Email Output ########################################
-if [[ -n "$email" ]]; then	# Check if an email address has been configured
-	if [[ -n $attach ]]; then
-		echo "Blister output" | EMAIL="Blister" mutt -a "$fileOut" -s "ASA Blacklist Config" -- "$email"
-	else
-		cat "$fileOut" | EMAIL="Blister" mutt -s "ASA Blacklist Config" -- "$email"
-	fi
-fi
+# Send email if address exists
+send
 
 [[ -d /opt/blister/threads ]] && rm -rf /opt/blister/threads
 exit
