@@ -338,6 +338,8 @@ Usage: blister [OPTION]
 EOF
 }
 
+exec 2> >(sed "s/^/$(date +'%b %e %Y %T'): /" >> /var/log/blister.err)
+
 # Parse options
 while getopts ":haAf:o:" OPT; do
 	case "$OPT" in
