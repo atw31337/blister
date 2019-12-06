@@ -374,7 +374,7 @@ while getopts ":haAf:o:" OPT; do
 done
 
 # Check if another instance of blister is running before proceeding.
-if [[ $(pgrep -c blister) -gt 1 ]]; then
+if [[ $(pgrep -c blister) -gt 2 ]]; then
         echo "Another instance of blister is already running. Please try again once it has completed."
 	exit 0
 fi
