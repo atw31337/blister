@@ -92,10 +92,7 @@ if [[ -n $file ]]; then
 		cp "$1" "$tempIn"
 	else
 		echo "blister: $1 does not exist"
-<<<<<<< HEAD
-=======
 		[[ -d /opt/blister/threads ]] && rm -rf /opt/blister/threads
->>>>>>> experimental
 		exit 1
 	fi
 elif [[ $(curl -s -o "$tempIn" -w "%{http_code}" "$1") -eq 200 ]]; then
