@@ -7,7 +7,7 @@
 # (192.168.1.0-192.168.1.55). An FQDN function has been added to enable the parsing of URL blacklists. Any URLs containing
 # wildcards will be removed because the ASA does not allow them to be used in FQDNs. Lists that follow these formats can be
 # added or removed in the blacklists file. The DShield block list does not follow this format; however, I have added a case specific
-# function for this particular list. Feel free to contact me with any questions, issues, or case specific requests
+# function for this particular list.
 ##########################################################################################################################################
 
 Instructions and notes:
