@@ -1,7 +1,7 @@
 # Blister blacklists
 # Format: GroupObjectName=URL
 
-SpamhausDropList=https://panwdbl.appspot.com/lists/shdrop.txt
+# SpamhausDropList=https://panwdbl.appspot.com/lists/shdrop.txt
 
 CINS_ActiveThreats=http://cinsscore.com/list/ci-badguys.txt
 
@@ -15,6 +15,8 @@ BruteForceBlocker=https://panwdbl.appspot.com/lists/bruteforceblocker.txt
 
 SSLAbuseList=https://panwdbl.appspot.com/lists/sslabuseiplist.txt
 
-FeodoTracker=https://feodotracker.abuse.ch/downloads/ipblocklist.txt
+ETBlockList=http://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt
 
+# FeodoTracker=https://feodotracker.abuse.ch/downloads/ipblocklist.txt
 
+# DShield_Block_List=https://www.dshield.org/block.txt
