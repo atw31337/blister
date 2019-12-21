@@ -1,13 +1,14 @@
 #!/bin/bash
 # Blister
 # Author: Andrew T. Withers (atw31337@gmail.com)
-# Description: This script will download and parse blacklists into ASA configuration format. Commented lines, lines starting with a '#', will be ignored.
-# All other lines must either contain a valid IPv4 or IPv6 address (192.168.1.0, fd08:23eb:5a25:7df1:0000:0000:0000:0001), a IPv4 subnet in CIDR notation
-# (192.168.1.0/24), or an IPv4 range (192.168.1.0-192.168.1.55). A fqdn function has been added to enable the parsing of URL blacklists. Any URLs containing
-# wildcards will be removed because the ASA does not allow them to be used in FQDNs. Lists that follow these formats can be added or removed in the
-# "Declare and Parse Blacklists" section. Lists that do not follow these formats will require case specific scripting that can be added to the "Special Cases"
-# function section. Feel free to contact me for assistance or Special Case requests.
-################################################################################################################################################################
+# Description: This script will download and parse blacklists into ASA configuration format. Blacklist compatiblity format is as follows.
+# Commented lines, lines starting with a '#', will be ignored. All other lines must either contain a valid IPv4 or IPv6 address
+# (192.168.1.0, fd08:23eb:5a25:7df1:0000:0000:0000:0001), an IPv4 subnet in CIDR notation (192.168.1.0/24), or an IPv4 range
+# (192.168.1.0-192.168.1.55). An FQDN function has been added to enable the parsing of URL blacklists. Any URLs containing
+# wildcards will be removed because the ASA does not allow them to be used in FQDNs. Lists that follow these formats can be
+# added or removed in the blacklists file. The DShield block list does not follow this format; however, I have added a case specific
+# function for this particular list. Feel free to contact me with any questions, issues, or case specific requests
+##########################################################################################################################################
 
 setup() {
 # Func: Get configuration variables and create blister.conf
