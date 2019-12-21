@@ -116,7 +116,6 @@ done < "$tempIn"
 }
 
 parse() {
-RANGEMETHOD=2			# Must be either 1 or 2. Method 1 parses ranges into individual host IPs while method 2 parses ranges into range objects.
 tempIn="/tmp/$BASHPID.in"	# Temporary file used to store the blacklist that is being processed
 tempOut="/tmp/$BASHPID.out"	# Temporary file that contains the output of the list that is being parsed
 fqdn="/tmp/$BASHPID.fqdn"	# Temporary file to store any lines that contain FQDNs
@@ -165,48 +164,17 @@ if [[ -f $tempIn ]]; then
 				OCT2=$(echo "$BEGINIP" | cut -d'.' -f2)	#Second octect of starting IP
 				OCT3=$(echo "$BEGINIP" | cut -d'.' -f3)	#Third octect of starting IP
 				OCT4=$(echo "$BEGINIP" | cut -d'.' -f4)	#Fourth octect of starting IP
-
-				## Method 1: Parse ranges into individual host IPs
-				if [[ $RANGEMETHOD -eq 1 ]]; then
-					IP="$BEGINIP"
+				((OCT4+=1))
+				IP="$OCT1.$OCT2.$OCT3.$OCT4"
+				if [[ "$IP" == "$ENDIP" ]]; then	# Test for ranges containing only 2 IP addresses
 					printf "network-object host %s\n" "$BEGINIP" >> "$tempOut"
-
-					while [[ $IP != $ENDIP ]]; do
-						if [[ $OCT4 -eq 255 ]]; then
-							OCT4=0
-							if [[ $OCT3 -eq 255 ]]; then
-								OCT3=0
-								if [[ $OCT2 -eq 255 ]]; then
-									OCT2=0
-									((OCT1+=1))
-								else
-									((OCT2+=1))
-								fi
-							else
-								((OCT3+=1))
-							fi
-						else
-							((OCT4+=1))
-						fi
-						IP="$OCT1.$OCT2.$OCT3.$OCT4"
-						printf "network-object host %s\n" "$IP" >> "$tempOut"
-					done
-
-				elif [[ $RANGEMETHOD -eq 2 ]]; then	## Method 2: Create IP range objects
-					((OCT4+=1))
-					IP="$OCT1.$OCT2.$OCT3.$OCT4"
-					if [[ "$IP" == "$ENDIP" ]]; then	# Test for ranges containing only 2 IP addresses
-						printf "network-object host %s\n" "$BEGINIP" >> "$tempOut"
-						printf "network-object host %s\n" "$ENDIP" >> "$tempOut"
-					else
-						printf "exit\n" >> "$tempOut"	# Exit out of the object-group in order to create the range object.
-						printf "object network %s\n" "$BEGINIP" >> "$tempOut"
-						printf "range %s %s\n" "$BEGINIP" "$ENDIP" >> "$tempOut"
-						printf "object-group network %s\n" "$2" >> "$tempOut"	# Re-enter the object-group in order to add the new range object.
-						printf "network-object object %s\n" "$BEGINIP" >> "$tempOut"
-					fi
+					printf "network-object host %s\n" "$ENDIP" >> "$tempOut"
 				else
-					(>&2 printf "Error: Failed to parse range IPs. RANGEMETHOD has been improperly configured.\n\n")
+					printf "exit\n" >> "$tempOut"	# Exit out of the object-group in order to create the range object.
+					printf "object network %s\n" "$BEGINIP" >> "$tempOut"
+					printf "range %s %s\n" "$BEGINIP" "$ENDIP" >> "$tempOut"
+					printf "object-group network %s\n" "$2" >> "$tempOut"	# Re-enter the object-group in order to add the new range object.
+					printf "network-object object %s\n" "$BEGINIP" >> "$tempOut"
 				fi
 			else	#Part 3: Parse remaining lines
 				printf "network-object host %s\n" "$line" >> "$tempOut"
