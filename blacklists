@@ -9,8 +9,6 @@ Tor_Network=https://www.dan.me.uk/torlist/
 
 ETKnownCompromised=https://rules.emergingthreats.net/blockrules/compromised-ips.txt
 
-RansomwareCnC=https://ransomwaretracker.abuse.ch/downloads/RW_IPBL.txt
-
 MalwareDomainList=https://panwdbl.appspot.com/lists/mdl.txt
 
 BruteForceBlocker=https://panwdbl.appspot.com/lists/bruteforceblocker.txt
