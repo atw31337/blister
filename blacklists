@@ -1,0 +1,22 @@
+# Blister blacklists
+# Format: GroupObjectName=URL
+
+# SpamhausDropList=https://panwdbl.appspot.com/lists/shdrop.txt
+
+CINS_ActiveThreats=http://cinsscore.com/list/ci-badguys.txt
+
+Tor_Network=https://www.dan.me.uk/torlist/
+
+ETKnownCompromised=https://rules.emergingthreats.net/blockrules/compromised-ips.txt
+
+MalwareDomainList=https://panwdbl.appspot.com/lists/mdl.txt
+
+BruteForceBlocker=https://panwdbl.appspot.com/lists/bruteforceblocker.txt
+
+SSLAbuseList=https://panwdbl.appspot.com/lists/sslabuseiplist.txt
+
+ETBlockList=http://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt
+
+# FeodoTracker=https://feodotracker.abuse.ch/downloads/ipblocklist.txt
+
+# DShield_Block_List=https://www.dshield.org/block.txt
