@@ -1,0 +1,29 @@
+# Blister
+# Author: Andrew T. Withers (atw31337@gmail.com)
+# Description: This script will download and parse blacklists into ASA configuration format and output the commands as a text file. 
+# The text can then be pasted into an ASA CLI terminal. Blacklist compatiblity format is as follows.
+# Commented lines, lines starting with a '#', will be ignored. All other lines must either contain a valid IPv4 or IPv6 address
+# (192.168.1.0, fd08:23eb:5a25:7df1:0000:0000:0000:0001), an IPv4 subnet in CIDR notation (192.168.1.0/24), or an IPv4 range
+# (192.168.1.0-192.168.1.55). An FQDN function has been added to enable the parsing of URL blacklists. Any URLs containing
+# wildcards will be removed because the ASA does not allow them to be used in FQDNs. Lists that follow these formats can be
+# added or removed in the blacklists file. The DShield block list does not follow this format; however, I have added a case specific
+# function for this particular list. Feel free to contact me with any questions, issues, or case specific requests
+##########################################################################################################################################
+
+Instructions and notes:
+
+Create an object group for blacklisted IP addresses on the ASA firewall. Add it to your ACL as an explicit deny rule. This will be the object
+group that you will enter into the configuration when prompted. Every time the script is run, it first searches for a configuration file. 
+If it does not find a configuration it will prompt the user for the necessary information and create a configuration file for future use. 
+Blacklists can be added or removed from /opt/blister/blacklists once the initial configuration is complete. The script will create an object 
+group for each individual list and add that group to the blacklisted IPs object group specified in the config. When adding lists to the blacklists file
+they should be entered in the following format: ObjectGroupName=URL. The ObjectGroupName can be anything you want it to be but should probably describe the
+blacklist which it contains. The blacklists file contains a number of default lists which can be used for reference. Use the -h option to display 
+the available options. If you opt to receive the output via email I suggest using the -a option to have it sent as an attachment.
+The output can be quite lengthy which can cause issues for web-based email. Using the attachment option also prevents the email client from converting 
+URLs into "safelinks." Once you have received and copied the output from the script, log into an ASA terminal, enter enable mode and paste. 
+Configuration changes can be made by modifying /etc/blister.conf. Blister is multi-threaded (multi-process); however, each thread only works 
+on one list at a time. Only one instance of blister can run at a time. The script will notify you if another instance is already running. This is done
+to ensure that multiple instances are not writing to the same output file at the same time.
+
+Please feel free to contact me with any questoins, issues, or suggestions at the email address above. 

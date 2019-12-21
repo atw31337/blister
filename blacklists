@@ -1,5 +1,5 @@
 # Blister blacklists
-# Format: GroupObjectName=URL
+# Format: ObjectGroupName=URL
 
 # SpamhausDropList=https://panwdbl.appspot.com/lists/shdrop.txt
 

@@ -300,7 +300,7 @@ Usage: blister [OPTION]
 	Options:
 		-h		Usage
 		-a		Send output as an email attachment
-		-A		Appends list(s) instead of replacing
+		-A		Appends list(s) to object group instead of replacing
 		-f <FILE>	Parses a single list from a local file
 		-o <FILE>	Specifies the name of the output file
 
