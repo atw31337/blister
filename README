@@ -26,4 +26,4 @@ Configuration changes can be made by modifying /etc/blister.conf. Blister is mul
 on one list at a time. Only one instance of blister can run at a time. The script will notify you if another instance is already running. This is done
 to ensure that multiple instances are not writing to the same output file at the same time.
 
-Please feel free to contact me with any questoins, issues, or suggestions at the email address above. 
+Please feel free to contact me with any questions, issues, or suggestions at the email address above. 
