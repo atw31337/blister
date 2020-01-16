@@ -19,7 +19,7 @@ local blockedGroup
 local email
 local maxThreads
 
-echo "Configuratoin setup: "
+echo "Configuration setup: "
 read -p "Please enter the default output file. [/opt/blister/blister.output]: " outFile
 [[ -z $outFile ]] && outFile="/opt/blister/blister.output"
 while [[ -z $blockedGroup ]]; do
