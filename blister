@@ -307,8 +307,6 @@ Usage: blister [OPTION]
 EOF
 }
 
-exec 2> >(sed "s/^/$(date +'%b %e %Y %T'): /" >> /var/log/blister.err)
-
 # Parse options
 while getopts ":haAf:o:" OPT; do
 	case "$OPT" in
@@ -380,11 +378,13 @@ if [[ -n $file ]]; then
 fi
 
 if ! [[ -f /opt/blister/blacklists ]]; then
-	echo "/opt/blister/blacklists does not exist!"
-	echo "Exiting..."
+	echo "/opt/blister/blacklists does not exist!" | tee -a /var/log/blister.err
+	echo "Exiting..." | tee -a /var/log/blister.err
 	[[ -d /opt/blister/threads ]] && rm -rf /opt/blister/threads
 	exit 1
 fi
+
+exec 2> >(sed "s/^/$(date +'%b %e %Y %T'): /" >> /var/log/blister.err)
 
 while read -r line; do
 	if echo "$line" | grep -vq "^#\|^$"; then
