@@ -249,7 +249,7 @@ if [[ $(curl -s -o "$tempIn" -w "%{http_code}" "$1") -eq 200 ]]; then
 else
 	echo Invalid URL: https://www.dshield.org/block.txt
 	echo Skipping blacklist
-	printf "Invalid URL: %s\n" "$1" >> /var/log/blister.log
+	printf "%s: Invalid URL: https://www.dshield.org/block.txt\n" "$(date)" >> /var/log/blister.log
 fi
 
 # Remove temporary blacklist file
